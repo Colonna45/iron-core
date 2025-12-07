@@ -1,7 +1,7 @@
 export default function handler(req, res) {
   res.setHeader("Content-Type", "text/xml");
 
-  // Text for the greeting that ElevenLabs will speak
+  // Text ElevenLabs should speak for the greeting
   const greeting = encodeURIComponent(
     "Hello Nick, Iron-Core AI is online. What can I do for you?"
   );
