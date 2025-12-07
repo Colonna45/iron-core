@@ -2,6 +2,7 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
 
 export default async function handler(req, res) {
+  // Build a proper URL object so we can read ?text=
   const url = new URL(req.url, `http://${req.headers.host}`);
   const text = url.searchParams.get("text") || "Iron-Core AI is online.";
 
@@ -11,29 +12,28 @@ export default async function handler(req, res) {
     method: "POST",
     headers: {
       "xi-api-key": ELEVENLABS_API_KEY,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       text,
       model_id: "eleven_turbo_v2",
       voice_settings: {
         stability: 0.5,
-        similarity_boost: 0.8
-      }
-    })
+        similarity_boost: 0.8,
+      },
+    }),
   });
 
   if (!elevenRes.ok) {
     res.statusCode = 500;
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.end();
+    res.setHeader("Content-Type", "text/plain");
+    res.end("Error calling ElevenLabs");
     return;
   }
 
   // Stream audio back to Twilio
   res.statusCode = 200;
   res.setHeader("Content-Type", "audio/mpeg");
-
   for await (const chunk of elevenRes.body) {
     res.write(chunk);
   }
