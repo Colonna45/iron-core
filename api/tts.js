@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,  // ✅ correct key name
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export default async function handler(req, res) {
   try {
-    // Accept ?text=... from URL OR JSON body { text: "..." }
+    // Accept ?text=... OR body text
     const queryText = req.query?.text;
     const bodyText = req.body?.text;
 
