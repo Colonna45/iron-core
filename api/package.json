@@ -1,0 +1,9 @@
+{
+  "name": "iron-core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "api/ai.js",
+  "dependencies": {
+    "openai": "^4.71.0"
+  }
+}
