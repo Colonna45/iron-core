@@ -1,15 +1,23 @@
-const response = await fetch(
-  `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID}/stream`,
-  {
-    method: "POST",
-    headers: {
-      "xi-api-key": process.env.ELEVENLABS_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      text,
-      model_id: "eleven_monolingual_v1",
-      optimize_streaming_latency: 3,
-    }),
+import OpenAI from "openai";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export default async function handler(req, res) {
+  try {
+    const text = req.body?.text || "Hello, this is Iron-Core AI speaking.";
+
+    const audio = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: text,
+    });
+
+    const buffer = Buffer.from(await audio.arrayBuffer());
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "TTS failed" });
   }
-);
+}
