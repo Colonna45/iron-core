@@ -1,104 +1,82 @@
 import OpenAI from "openai";
 
-// Helper to read Twilio's x-www-form-urlencoded body
-async function readTwilioBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-
-    req.on("data", (chunk) => {
-      data += chunk;
-    });
-
-    req.on("end", () => {
-      try {
-        const params = new URLSearchParams(data);
-        const body = {};
-        for (const [key, value] of params.entries()) {
-          body[key] = value;
-        }
-        resolve(body);
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    req.on("error", reject);
-  });
-}
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export default async function handler(req, res) {
   try {
-    // Only allow POST from Twilio
-    if (req.method !== "POST") {
-      res.status(405).send("Method Not Allowed");
-      return;
-    }
-
-    // 1️⃣ Read Twilio body (speech text is in SpeechResult)
-    const twilioBody =
-      typeof req.body === "object" && Object.keys(req.body || {}).length > 0
-        ? req.body
-        : await readTwilioBody(req);
-
-    console.log("Incoming Twilio body:", twilioBody);
-
+    // Twilio sends application/x-www-form-urlencoded
+    const body = req.body || {};
     const userText =
-      twilioBody.SpeechResult ||
-      twilioBody.Body ||
-      "The caller said nothing. Introduce yourself as Iron-Core AI.";
+      body.SpeechResult ||
+      body.TranscriptionText ||
+      ""; // fallback
 
-    // 2️⃣ Call OpenAI
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const promptText = userText || "Customer is on the line. Start the conversation.";
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content:
-            "You are Iron-Core AI, a friendly but efficient phone assistant for HVAC companies and auto shops.",
+          content: `
+You are Iron-Core AI, a virtual receptionist for blue-collar businesses.
+You mainly answer for:
+- HVAC contractors
+- Auto repair / body shops
+
+GOALS:
+1) Sound like a friendly but efficient human.
+2) ALWAYS collect:
+   - Customer name
+   - Phone number
+   - City/area
+   - Brief description of issue
+   - Best time today or tomorrow for a callback/appointment.
+3) If it's HVAC:
+   - Ask if it's AC, furnace, heat pump, or mini-split.
+   - Ask age of system (rough guess) and main symptoms.
+4) If it's AUTO:
+   - Ask year, make, model, mileage.
+   - Ask main issue (noise, dash light, braking, AC, etc.).
+5) Do NOT quote prices. Say:
+   "The technician will confirm pricing after diagnosis."
+6) Keep answers SHORT and conversational (2–4 sentences).
+7) End EVERY reply with ONE clear question to keep the caller talking.
+          `.trim(),
         },
-        { role: "user", content: userText },
+        { role: "user", content: promptText },
       ],
     });
 
     const reply =
-      completion.choices[0]?.message?.content?.trim() ||
-      "Sorry, I had trouble coming up with a reply.";
+      completion.choices?.[0]?.message?.content?.trim() ||
+      "Sorry, I had trouble understanding that. Could you repeat it?";
 
-    // 3️⃣ Build TwiML that plays ElevenLabs audio and then listens again
-    const encoded = encodeURIComponent(reply);
-    const host = req.headers.host; // e.g. iron-core-taupe.vercel.app
-    const ttsUrl = `https://${host}/api/tts?text=${encoded}`;
+    // Build ElevenLabs TTS URL
+    const encodedText = encodeURIComponent(reply);
+    const ttsUrl = `https://${req.headers.host}/api/tts?text=${encodedText}`;
 
+    // TwiML: play reply, then listen again
     const twiml = `
-      <Response>
-        <Play>${ttsUrl}</Play>
-        <Gather input="speech" action="/api/ai" method="POST">
-          <Say>What else can I help you with?</Say>
-        </Gather>
-      </Response>
+<Response>
+  <Gather input="speech" action="/api/ai" method="POST" timeout="6">
+    <Play>${ttsUrl}</Play>
+  </Gather>
+  <Say>I didn't catch that. Goodbye.</Say>
+</Response>
     `.trim();
 
     res.setHeader("Content-Type", "text/xml");
     res.status(200).send(twiml);
   } catch (error) {
-    console.error(
-      "AI route error:",
-      error.status || "",
-      error.message,
-      error.response?.data || ""
-    );
-
-    const fallback = `
-      <Response>
-        <Say>Sorry, Iron-Core AI ran into an error. Please try again later.</Say>
-      </Response>
-    `.trim();
-
-    res.setHeader("Content-Type", "text/xml");
-    res.status(500).send(fallback);
+    console.error("AI route error:", error);
+    res
+      .status(500)
+      .setHeader("Content-Type", "text/xml")
+      .send(
+        `<Response><Say>There was an internal error. Please try again later.</Say></Response>`
+      );
   }
-               }
+}
