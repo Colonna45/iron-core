@@ -1,7 +1,5 @@
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
+// Helper: read Twilio POST body (URL-encoded)
 async function readTwilioBody(req) {
-  // Twilio sends URL-encoded data; manually parse it
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const raw = Buffer.concat(chunks).toString("utf8");
@@ -14,41 +12,31 @@ async function readTwilioBody(req) {
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "text/xml");
 
-  const body = await readTwilioBody(req);
-  const userText = body.SpeechResult || body.TranscriptionText || "";
+  try {
+    const body = await readTwilioBody(req);
 
-  const prompt = userText || "Say hello and explain you are Iron-Core AI.";
+    // What Twilio heard from your voice
+    const userText = body.SpeechResult || "I didn't hear anything clearly.";
+    const reply = `You said: ${userText}.`;
 
-  // 🔹 Call OpenAI for the reply text
-  const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are Iron-Core AI, a friendly but efficient phone assistant." },
-        { role: "user", content: prompt }
-      ]
-    })
-  });
+    // Send that reply to ElevenLabs via /api/tts
+    const encodedText = encodeURIComponent(reply);
 
-  const data = await openaiRes.json();
-  const reply =
-    data?.choices?.[0]?.message?.content?.trim() ||
-    "I am Iron-Core AI. Something went wrong, but I am online.";
+    const twiml = `
+<Response>
+  <Play>https://${req.headers.host}/api/tts?text=${encodedText}</Play>
+  <Redirect>/api/voice</Redirect>
+</Response>
+`.trim();
 
-  // Encode reply so we can send it to the TTS endpoint as a query param
-  const encodedText = encodeURIComponent(reply);
-
-  const twiml = `
-    <Response>
-      <Play>https://${req.headers.host}/api/tts?text=${encodedText}</Play>
-      <Redirect>/api/voice</Redirect>
-    </Response>
-  `;
-
-  res.status(200).send(twiml.trim());
+    res.status(200).send(twiml);
+  } catch (err) {
+    console.error("AI route error:", err);
+    const twiml = `
+<Response>
+  <Say>Something went wrong on the server. Goodbye.</Say>
+</Response>
+`.trim();
+    res.status(200).send(twiml);
+  }
 }
