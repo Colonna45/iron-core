@@ -1,13 +1,19 @@
 export default function handler(req, res) {
-  res.setHeader("Content-Type", "text/xml");
+  const firstLine =
+    "Hey, this is Iron-Core answering for the shop. Are you calling about your HVAC system or your vehicle today?";
+
+  const encoded = encodeURIComponent(firstLine);
+  const ttsUrl = `https://${req.headers.host}/api/tts?text=${encoded}`;
 
   const twiml = `
 <Response>
-  <Gather input="speech" action="/api/ai" method="POST">
-    <Play>https://iron-core-taupe.vercel.app/api/tts?text=Hello%20Nick%2C%20Iron-Core%20AI%20is%20online.%20What%20can%20I%20do%20for%20you%3F</Play>
+  <Gather input="speech" action="/api/ai" method="POST" timeout="6">
+    <Play>${ttsUrl}</Play>
   </Gather>
+  <Say>I didn't catch that. Goodbye.</Say>
 </Response>
-`;
+  `.trim();
 
-  res.status(200).send(twiml.trim());
+  res.setHeader("Content-Type", "text/xml");
+  res.status(200).send(twiml);
 }
