@@ -8,17 +8,32 @@ const client = new OpenAI({
 
 export default async function handler(req, res) {
   try {
-    // Accept text from ?text=... OR JSON body { text: "..." }
+    // Text can come from ?text=... or JSON body { text: "..." }
     const queryText = req.query?.text;
-    const bodyText = req.body?.text;
+    let bodyText = null;
+
+    if (
+      req.method === "POST" &&
+      req.headers["content-type"]?.includes("application/json")
+    ) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const raw = Buffer.concat(chunks).toString("utf8");
+      try {
+        const json = JSON.parse(raw);
+        bodyText = json.text;
+      } catch {
+        bodyText = null;
+      }
+    }
 
     const text =
       (queryText && decodeURIComponent(queryText)) ||
       bodyText ||
-      "Hello, this is Iron-Core AI speaking.";
+      "Hey, my name is Michael with Iron-Core AI Systems. How can I help today?";
 
     const audio = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
+      model: "gpt-4o-mini-tts", // fast TTS
       voice: "alloy",
       input: text,
     });
