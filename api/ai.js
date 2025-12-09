@@ -39,11 +39,20 @@ export default async function handler(req, res) {
         : await readTwilioBody(req);
 
     const callSid = body.CallSid || "unknown-call";
-    const from = body.From || "unknown-from";
-    const speech = body.SpeechResult || "";
+const from = body.From || "unknown-from";
 
-    const userText =
-      speech || "The caller said nothing. Start by asking what they need help with.";
+// Grab what Twilio actually sent from the Gather
+const rawSpeech =
+  body.SpeechResult ||    // Twilio speech recognition result
+  body.Body ||            // fallback (SMS or other)
+  "";
+
+// Make sure it's a clean string
+const speech = String(rawSpeech).trim();
+
+const userText =
+  speech ||
+  "The caller said nothing. Start by asking what they need help with.";
 
     // 🔥 log every turn so you have a record
     console.log("IRON-CORE CALL", {
