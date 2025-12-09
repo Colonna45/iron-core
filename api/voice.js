@@ -1,9 +1,12 @@
+// api/voice.js
+
 export default function handler(req, res) {
-  const firstLine =
+  const host = req.headers.host;
+  const greetingText =
     "Hey, this is Iron-Core answering for the shop. Are you calling about your HVAC system or your vehicle today?";
 
-  const encoded = encodeURIComponent(firstLine);
-  const ttsUrl = `https://${req.headers.host}/api/tts?text=${encoded}`;
+  const encoded = encodeURIComponent(greetingText);
+  const ttsUrl = `https://${host}/api/tts?text=${encoded}`;
 
   const twiml = `
 <Response>
