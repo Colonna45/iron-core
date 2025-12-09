@@ -1,3 +1,5 @@
+// api/tts.js
+
 import OpenAI from "openai";
 
 const client = new OpenAI({
@@ -6,7 +8,7 @@ const client = new OpenAI({
 
 export default async function handler(req, res) {
   try {
-    // Accept ?text=... OR body text
+    // Accept text from ?text=... OR JSON body { text: "..." }
     const queryText = req.query?.text;
     const bodyText = req.body?.text;
 
