@@ -1,9 +1,10 @@
 {
-  "name": "iron-core",
+  "name": "iron-core-ai",
   "version": "1.0.0",
-  "type": "module",
-  "main": "api/ai.js",
-  "dependencies": {
-    "openai": "^4.71.0"
-  }
+  "description": "Iron Core AI – Evelyn phone receptionist demo",
+  "main": "api/twilio-hvac.js",
+  "scripts": {
+    "dev": "node api/twilio-hvac.js"
+  },
+  "dependencies": {}
 }
